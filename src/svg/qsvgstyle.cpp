@@ -211,6 +211,7 @@ QSvgFontStyle::QSvgFontStyle(QSvgFont *font, QSvgTinyDocument *doc)
     , m_doc(doc)
     , m_familySet(0)
     , m_sizeSet(0)
+    , m_relativeSizeSet( 0 )
     , m_styleSet(0)
     , m_variantSet(0)
     , m_weightSet(0)
@@ -223,6 +224,7 @@ QSvgFontStyle::QSvgFontStyle()
     , m_doc(0)
     , m_familySet(0)
     , m_sizeSet(0)
+    , m_relativeSizeSet( 0 )
     , m_styleSet(0)
     , m_variantSet(0)
     , m_weightSet(0)
@@ -248,6 +250,9 @@ void QSvgFontStyle::apply(QPainter *p, const QSvgNode *, QSvgExtraStates &states
 
     if (m_sizeSet)
         font.setPointSizeF(m_qfont.pointSizeF());
+
+    if (m_relativeSizeSet)
+        font.setPointSizeF( font.pointSizeF() * m_relativeSize);
 
     if (m_styleSet)
         font.setStyle(m_qfont.style());

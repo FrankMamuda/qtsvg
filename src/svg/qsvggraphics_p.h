@@ -195,12 +195,16 @@ public:
     void addText(const QString &text);
     void addLineBreak() {m_tspans.append(LINEBREAK);}
     void setWhitespaceMode(WhitespaceMode mode) {m_mode = mode;}
+    void setRelativeY( bool value ) { m_relativeY = value; }
 
     //QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
+
 private:
     static QSvgTspan * const LINEBREAK;
 
     QPointF m_coord;
+
+    bool m_relativeY = false;
 
     // 'm_tspans' is also used to store characters outside tspans and line breaks.
     // If a 'm_tspan' item is null, it indicates a line break.
@@ -227,10 +231,27 @@ public:
     bool isTspan() const {return m_isTspan;}
     void setWhitespaceMode(QSvgText::WhitespaceMode mode) {m_mode = mode;}
     QSvgText::WhitespaceMode whitespaceMode() const {return m_mode;}
+
+    qreal baseLineShift() const { return m_baseLineShift; }
+    QTextCharFormat::VerticalAlignment verticalAlignment() const { return m_verticalAlignment; }
+    void setVerticalAlignment( QTextCharFormat::VerticalAlignment verticalAlignment, qreal baseLineShift = 0.0 ) {
+        m_verticalAlignment = verticalAlignment;
+        m_baseLineShift = baseLineShift;
+    }
+
+    bool underline() const { return m_underline; }
+    void setUnderline( bool value ) {
+        m_underline = value;
+    }
+
 private:
     QString m_text;
     QSvgText::WhitespaceMode m_mode;
     bool m_isTspan;
+
+    QTextCharFormat::VerticalAlignment m_verticalAlignment = QTextCharFormat::AlignNormal;
+    qreal m_baseLineShift = 0.0;
+    bool m_underline = false;
 };
 
 class QSvgUse : public QSvgNode

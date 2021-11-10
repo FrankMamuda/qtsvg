@@ -319,6 +319,7 @@ QSvgAttributes::QSvgAttributes(const QXmlStreamAttributes &xmlAttributes, QSvgHa
                     textAnchor = value;
                 else if (name == QLatin1String("transform"))
                     transform = value;
+
                 break;
 
             case 'v':
@@ -899,6 +900,15 @@ static qreal parseLength(QStringView str, QSvgHandler::LengthType &type,
     if (numStr.endsWith(QLatin1Char('%'))) {
         numStr.chop(1);
         type = QSvgHandler::LT_PERCENT;
+
+        // this returns proper number
+        return numStr.toString().toDouble( ok );
+    } else if (numStr.endsWith(QLatin1String("em"))) {
+        numStr.chop(2);
+        type = QSvgHandler::LT_EM;
+
+        // this returns proper number
+        return numStr.toString().toDouble( ok );
     } else if (numStr.endsWith(QLatin1String("px"))) {
         numStr.chop(2);
         type = QSvgHandler::LT_PX;
@@ -922,6 +932,7 @@ static qreal parseLength(QStringView str, QSvgHandler::LengthType &type,
         //type = QSvgHandler::LT_OTHER;
     }
     qreal len = toDouble(numStr, ok);
+
     //qDebug()<<"len is "<<len<<", from '"<<numStr << "'";
     return len;
 }
@@ -960,6 +971,8 @@ static qreal convertToPixels(qreal len, bool , QSvgHandler::LengthType type)
 
     switch (type) {
     case QSvgHandler::LT_PERCENT:
+        break;
+    case QSvgHandler::LT_EM:
         break;
     case QSvgHandler::LT_PX:
         break;
@@ -1353,8 +1366,14 @@ static void parseFont(QSvgNode *node,
         case FontSizeNone:
             break;
         case FontSizeValue: {
-            QSvgHandler::LengthType dummy; // should always be pixel size
-            fontStyle->setSize(parseLength(attributes.fontSize, dummy, handler));
+            //QSvgHandler::LengthType dummy; // should always be pixel size
+            //fontStyle->setSize(parseLength(attributes.fontSize, dummy, handler));
+            QSvgHandler::LengthType type;
+            qreal len = parseLength(attributes.fontSize, type, handler);
+            if ( type == QSvgHandler::LT_PERCENT || type == QSvgHandler::LT_EM )
+                fontStyle->setRelativeSize( convertToNumber( attributes.fontSize, handler));
+            else
+                fontStyle->setSize( len );
         }
             break;
         default:
@@ -3265,14 +3284,14 @@ static QSvgNode *createSvgNode(QSvgNode *parent,
         width = parseLength(widthStr.toString(), type, handler);
         if (type != QSvgHandler::LT_PT)
             width = convertToPixels(width, true, type);
-        node->setWidth(int(width), type == QSvgHandler::LT_PERCENT);
+        node->setWidth(int(width), ( type == QSvgHandler::LT_PERCENT || type == QSvgHandler::LT_EM ));
     }
     qreal height = 0;
     if (!heightStr.isEmpty()) {
         height = parseLength(heightStr.toString(), type, handler);
         if (type != QSvgHandler::LT_PT)
             height = convertToPixels(height, false, type);
-        node->setHeight(int(height), type == QSvgHandler::LT_PERCENT);
+        node->setHeight(int(height), ( type == QSvgHandler::LT_PERCENT || type == QSvgHandler::LT_EM ));
     }
 
     QStringList viewBoxValues;
@@ -3335,11 +3354,17 @@ static QSvgNode *createTextNode(QSvgNode *parent,
     const QStringView x = attributes.value(QLatin1String("x"));
     const QStringView y = attributes.value(QLatin1String("y"));
     //### editable and rotate not handled
-    QSvgHandler::LengthType type;
-    qreal nx = parseLength(x.toString(), type, handler);
-    qreal ny = parseLength(y.toString(), type, handler);
+    QSvgHandler::LengthType typeX, typeY;
+    qreal nx = parseLength(x.toString(), typeX, handler);
+    qreal ny = parseLength(y.toString(), typeY, handler);
 
-    QSvgNode *text = new QSvgText(parent, QPointF(nx, ny));
+    bool relativeY = ( typeY == QSvgHandler::LT_EM || typeY == QSvgHandler::LT_PERCENT );
+    if ( relativeY && typeY == QSvgHandler::LT_PERCENT )
+        ny /= 100.0;
+
+    QSvgText *text = new QSvgText(parent, QPointF(nx, ny));
+    text->setRelativeY( relativeY );
+
     return text;
 }
 
@@ -3358,10 +3383,34 @@ static QSvgNode *createTextAreaNode(QSvgNode *parent,
 }
 
 static QSvgNode *createTspanNode(QSvgNode *parent,
-                                    const QXmlStreamAttributes &,
-                                    QSvgHandler *)
+                                    const QXmlStreamAttributes &attributes,
+                                    QSvgHandler *handler)
 {
-    return new QSvgTspan(parent);
+    QSvgTspan *tspan( new QSvgTspan( parent ));
+
+    const QStringView baseLineShift = attributes.value( QLatin1String( "baseline-shift" ));
+    if ( baseLineShift == QLatin1String( "super" ))
+        tspan->setVerticalAlignment( QTextCharFormat::AlignSuperScript );
+    else if ( baseLineShift == QLatin1String( "sub" ))
+        tspan->setVerticalAlignment( QTextCharFormat::AlignSubScript );
+    else {
+        QSvgHandler::LengthType type;
+        qreal shift = parseLength( baseLineShift.toString(), type, handler );
+
+        const bool relative = ( type == QSvgHandler::LT_EM || type == QSvgHandler::LT_PERCENT );
+        if ( relative ) {
+            if ( type == QSvgHandler::LT_PERCENT )
+                shift /= 100.0;
+
+            tspan->setVerticalAlignment( QTextCharFormat::AlignBaseline, shift );
+        }
+    }
+
+    const QStringView textDecoration = attributes.value( QLatin1String( "text-decoration" ));
+    if ( textDecoration == QLatin1String("underline"))
+        tspan->setUnderline( true );
+
+    return tspan;
 }
 
 static bool parseTitleNode(QSvgNode *parent,

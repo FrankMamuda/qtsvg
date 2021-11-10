@@ -286,7 +286,6 @@ void QSvgText::setTextArea(const QSizeF &size)
 }
 
 //QRectF QSvgText::bounds(QPainter *p, QSvgExtraStates &) const {}
-
 void QSvgText::draw(QPainter *p, QSvgExtraStates &states)
 {
     applyStyle(p, states);
@@ -304,7 +303,7 @@ void QSvgText::draw(QPainter *p, QSvgExtraStates &states)
     qreal y = 0;
     bool initial = true;
     qreal px = m_coord.x() * scale;
-    qreal py = m_coord.y() * scale;
+    qreal py = m_relativeY ? 0 : m_coord.y() * scale;
     QSizeF scaledSize = m_size * scale;
 
     if (m_type == TEXTAREA) {
@@ -365,12 +364,19 @@ void QSvgText::draw(QPainter *p, QSvgExtraStates &states)
                     appendSpaceNext = false;
             }
 
+            if ( m_tspans[i]->underline())
+                font.setUnderline( true );
+
             QTextLayout::FormatRange range;
             range.start = paragraphs.back().length();
             range.length = newText.length();
             range.format.setFont(font);
             range.format.setTextOutline(p->pen());
             range.format.setForeground(p->brush());
+            range.format.setVerticalAlignment( m_tspans[i]->verticalAlignment());
+
+            if ( m_tspans[i]->verticalAlignment() == QTextCharFormat::AlignBaseline )
+                range.format.setBaselineOffset( m_tspans[i]->baseLineShift() * 100.0);
 
             if (appendSpace) {
                 Q_ASSERT(!formatRanges.back().isEmpty());
@@ -397,6 +403,8 @@ void QSvgText::draw(QPainter *p, QSvgExtraStates &states)
         }
         states.svgFont->draw(p, m_coord * scale, text, p->font().pointSizeF() * scale, states.textAnchor);
     } else {
+        qreal yOffset = 0.0;
+
         for (int i = 0; i < paragraphs.size(); ++i) {
             QTextLayout tl(paragraphs[i]);
             QTextOption op = tl.textOption();
@@ -441,8 +449,12 @@ void QSvgText::draw(QPainter *p, QSvgExtraStates &states)
                 }
 
                 y += 1.1 * line.height();
+
+                if ( m_relativeY ) {
+                    yOffset = line.height() * m_coord.y() * 0.9;
+                }
             }
-            tl.draw(p, QPointF(px, py), QList<QTextLayout::FormatRange>(), bounds);
+            tl.draw(p, QPointF(px, py + yOffset), QList<QTextLayout::FormatRange>(), bounds);
 
             if (endOfBoundsReached)
                 break;

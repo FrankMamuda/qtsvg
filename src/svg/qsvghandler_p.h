@@ -84,6 +84,7 @@ class Q_SVG_PRIVATE_EXPORT QSvgHandler
 public:
     enum LengthType {
         LT_PERCENT,
+        LT_EM,
         LT_PX,
         LT_PC,
         LT_PT,

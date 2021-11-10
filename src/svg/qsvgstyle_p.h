@@ -351,6 +351,12 @@ public:
         m_sizeSet = 1;
     }
 
+    void setRelativeSize(qreal size)
+    {
+        m_relativeSize = size;
+        m_relativeSizeSet = 1;
+    }
+
     void setTextAnchor(Qt::Alignment anchor)
     {
         m_textAnchor = anchor;
@@ -411,6 +417,9 @@ private:
     uint m_variantSet : 1;
     uint m_weightSet : 1;
     uint m_textAnchorSet : 1;
+
+    qreal m_relativeSize = 1.0;
+    uint m_relativeSizeSet : 1;
 };
 
 class Q_SVG_PRIVATE_EXPORT QSvgStrokeStyle : public QSvgStyleProperty
